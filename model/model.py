@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as tordata
 
-from .network import TripletLoss, LegModel, LocalNet  # 三元组损失，SetNet
+from .network import *
 from .utils import TripletSampler  # 三元组采样器
 
 
@@ -52,18 +52,24 @@ class Model:
         self.total_iter = total_iter  # 80000
 
         self.img_size = img_size  # 64
-
-        # self.encoder = Mymodel().float()
-        # self.encoder = LegModel().float()
-        self.encoder = LocalNet().float()
-
+        '''GaitSet'''
+        # self.encoder = GaitSet(self.hidden_dim).float()
+        # self.encoder = GaitSet_Half(self.hidden_dim).float()
+        # self.encoder = GaitSet_Half_Fusion(self.hidden_dim).float()
+        # self.encoder = GaitSet_HPP(self.hidden_dim).float()
+        '''GaitPart'''
+        self.encoder = GaitPart().float()
+        # self.encoder = GaitPart_Half().float()
+        # self.encoder = GaitPart_HPP().float()
+        '''GaitLocal'''
+        # self.encoder = GaitLocal().float()
+        # self.encoder = GaitLocal_part().float()
+        '''GaitSA'''
+        # self.encoder = GaitSA().float()
+        # self.encoder = GaitSA_prior().float()
         self.encoder = nn.DataParallel(self.encoder)
         self.triplet_loss = TripletLoss(self.P * self.M, self.hard_or_full_trip, self.margin).float()
         self.triplet_loss = nn.DataParallel(self.triplet_loss)
-        '''CrossEntropyLoss'''
-        self.id_loss = nn.CrossEntropyLoss()
-        self.id_loss = nn.DataParallel(self.id_loss)
-        self.id_loss.cuda()
         self.encoder.cuda()
         self.triplet_loss.cuda()
 
@@ -183,7 +189,6 @@ class Model:
 
         _time1 = datetime.now()  # 计时
         for seq, view, seq_type, label, batch_frame in train_loader:
-            # seq_size:1, but seq[0]_size:(128,30,64,44)、view_size:128、seq_type:128、label_size:128=16*8(8个id)、batch_frame：None
             # batch_frame的作用，原作者回答
             # 这个主要用于多样本的并行测试。和model中的collate_fn()呼应。测试时不同样本长度不同不能用普通方式组成batch。
             # 代码中将样本按卡的数目重新分配拼接成大的“样本”，从而实现最小空间浪费的批量测试。
@@ -198,28 +203,12 @@ class Model:
 
             """模型真正加载使用的地方"""
             feature, label_prob = self.encoder(*seq, batch_frame)
-            # feature [N,Part_num,C]   label_prob [N,Pat_num,73(person)]
-            label_prob = label_prob.permute(1, 0, 2).contiguous()
 
-            target_label = [train_label_set.index(l) for l in label]  # list.index() 返回索引位置，每个label在label_set中的索引位置
+            target_label = [train_label_set.index(l) for l in label]
             target_label = self.np2ts(np.array(target_label)).long()
-            # 训练标签转换为tensor torch.Size([128])  target_label.size:(128),label变成了索引位置
-            # print(target_label.size())
 
-            triplet_feature = feature.permute(1, 0, 2).contiguous()  # torch.Size([62, 128, 256])
-            # print(triplet_feature.size())
-            # print(triplet_feature.size(0)) 62
-
-            p, n, c = label_prob.size()
-            part_label = target_label.unsqueeze(0).repeat(label_prob.size(0), 1).view(p * n)
-
+            triplet_feature = feature.permute(1, 0, 2).contiguous()
             triplet_label = target_label.unsqueeze(0).repeat(triplet_feature.size(0), 1)
-            # torch.Size([62, 128])   target_labeltorch.Size([128])->torch.Size([1, 128])->torch.Size([62, 128])
-            # print(triplet_label.size())
-
-            label_prob = label_prob.view(p * n, c)
-            id_loss = self.id_loss(label_prob, part_label)
-
             (full_loss_metric, hard_loss_metric, mean_dist, full_loss_num) = self.triplet_loss(triplet_feature,
                                                                                                triplet_label)
             if self.hard_or_full_trip == 'hard':
@@ -227,8 +216,6 @@ class Model:
             elif self.hard_or_full_trip == 'full':
                 loss = full_loss_metric.mean()  # 对每个条带的loss取平均
 
-            """TripletLoss & CrossEntropyLoss"""
-            loss = loss + id_loss.mean()
             self.hard_loss_metric.append(hard_loss_metric.mean().data.cpu().numpy())  # 难样本度量损失
             self.full_loss_metric.append(full_loss_metric.mean().data.cpu().numpy())  # 全样本度量损失
             self.full_loss_num.append(full_loss_num.mean().data.cpu().numpy())  # loss不为0的数量
@@ -238,11 +225,11 @@ class Model:
                 loss.backward()
                 self.optimizer.step()
 
-            if self.restore_iter % 100 == 0:  # 打印100次迭代的训练时间
+            if self.restore_iter % 1000 == 0:  # 打印100次迭代的训练时间
                 print("100次训练时间", datetime.now() - _time1)
                 _time1 = datetime.now()
 
-            if self.restore_iter % 10 == 0:  # 10次迭代打印
+            if self.restore_iter % 100 == 0:  # 10次迭代打印
                 print('iter {}:'.format(self.restore_iter), end='')
                 print(', hard_loss_metric={0:.8f}'.format(np.mean(self.hard_loss_metric)), end='')
                 print(', full_loss_metric={0:.8f}'.format(np.mean(self.full_loss_metric)), end='')
@@ -257,9 +244,10 @@ class Model:
                 self.full_loss_num = []
                 self.dist_list = []
 
-            if self.restore_iter % 25000 == 0:
-                self.save()  # 每训练10次，保存一次模型
-            # Visualization using t-SNE
+            if self.restore_iter % 10000 == 0:
+                self.save()
+
+                # Visualization using t-SNE
             # if self.restore_iter % 500 == 0:
             #     pca = TSNE(2)
             #     pca_feature = pca.fit_transform(feature.view(feature.size(0), -1).data.cpu().numpy())

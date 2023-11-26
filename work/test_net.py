@@ -1,18 +1,29 @@
 import torch
 
-from model.network import LegModel, Nolocal, LocalNet
+from model.network import *
 
-n, t, c, h, w = 10, 5, 1, 64, 44
-input_data = torch.rand(n, t, h, w).cuda()
+n, s, c, h, w = 10, 5, 1, 64, 44
+input_data = torch.rand(n, s, h, w).cuda()
 
-# net = LegModel().cuda()
-# net = Mymodel().cuda()
-# net = Nolocal().cuda()
-net = LocalNet().cuda()
+hidden_dim = 256
 
+'''GaitSet'''
+# encoder = GaitSet(hidden_dim)   
+# encoder = GaitSet_Half(hidden_dim)   
+# encoder = GaitSet_Half_Fusion(hidden_dim)
+# encoder = GaitSet_HPP(hidden_dim)
 
+'''GaitPart'''
+# encoder = GaitPart().cuda()
+# encoder = GaitPart_HPP().cuda()
+encoder = GaitPart_Half().cuda()
+'''GaitLocal'''
+# encoder = GaitLocal().cuda()
+# encoder = GaitLocal_part().cuda()
+'''GaitSA'''
+# encoder = GaitSA().cuda()
+# encoder = GaitSA_prior().cuda()
 
-feature, part_prob = net(input_data)
+feature, part_prob = encoder(input_data)
 
-
-
+print(feature, part_prob)

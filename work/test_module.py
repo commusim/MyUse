@@ -1,6 +1,6 @@
 import torch
 from model.network.modules.local3d import LocalBlock, LocalizationST, GaussianSampleST, C3DBlock
-from model.network.GaitSA_piror import Mymodel
+from model.network.GaitSA_prior import Mymodel
 '''测试ImpHPP_C'''
 
 # 定义随机输入数据

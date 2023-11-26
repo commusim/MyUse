@@ -344,7 +344,7 @@ class LocalCNN3D_ST(nn.Module):
 """finial new using module"""
 
 
-class LocalLegBlock(nn.Module):
+class LocalBlock(nn.Module):
     def __init__(self,
                  locator,
                  sampler,

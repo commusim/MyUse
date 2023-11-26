@@ -2,7 +2,7 @@ conf = {
     "WORK_PATH": "./work",
     "CUDA_VISIBLE_DEVICES": "0,1,2,3",
     "data": {
-        'dataset_path': "/home/ubuntu/commusim/dataset/GaitDatasetB-silh/Gaitset",
+        'dataset_path': "E:\python\data\gait\\64x64",
         'resolution': '64',
         'dataset': 'CASIA-B',
         # In CASIA-B, data of subject #5 is incomplete.
@@ -14,15 +14,28 @@ conf = {
     },
     "model": {
         'hidden_dim': 256,
-        'lr': 4e-5,
+        'lr': 1e-4,
         'hard_or_full_trip': 'full',
-        'batch_size': (4, 16),
-        'restore_iter': 80000,
-        'total_iter': 200000,
+        'batch_size': (8, 8),
+        'restore_iter': 0,
+        'total_iter': 80000,
         'margin': 0.2,
         'num_workers': 3,
         'frame_num': 30,
-        # 'model_name': 'GaitSet',
-        'model_name': 'LegModel',
+
+        # 'model_name': 'GaitSet_(8,8)',
+        'model_name': 'GaitSet_Half_(8,8)',
+        # 'model_name': 'GaitSet_Half_Fusion_(8,8)',
+
+        # 'model_name': 'GaitLocal_(8,8)',
+        # 'model_name': 'GaitLocal_part_(8,8)',
+
+        # 'model_name': 'GaitPart_(8,8)',
+        # 'model_name': 'GaitPart_Half_(8,8)',
+
+        # 'model_name': 'GaitSA_(8,8)',
+        # 'model_name': 'GaitSA_prior_(8,8)',
+
+
     },
 }

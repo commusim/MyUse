@@ -7,13 +7,13 @@ import torch.nn.functional as F
 from model.network.modules.modules import HorizontalPoolingPyramid
 # CSTL
 from model.network.modules.cstl import MSTE, ATA, ImpHPP_C
-from model.network.modules.local_SA import LocalLegBlock, Backbone, LocalizationST, GaussianSampleST, C3DBlock
+from model.network.modules.local_SA import LocalBlock, Backbone, LocalizationST, GaussianSampleST, C3DBlock
 from model.network.utils import HP, MCM, SeparateFc
 
 
-class LegModel(nn.Module):
+class GaitSA(nn.Module):
     def __init__(self):
-        super(LegModel, self).__init__()
+        super(GaitSA, self).__init__()
 
         in_c = [1, 32, 64, 128]
         bin_num = [8, 4, 2, 1]
@@ -23,7 +23,7 @@ class LegModel(nn.Module):
 
 
         self.Backbone = Backbone()
-        self.local_3d = LocalLegBlock(LocalizationST, GaussianSampleST, C3DBlock,
+        self.local_3d = LocalBlock(LocalizationST, GaussianSampleST, C3DBlock,
                                       128, 64, 64,
                                       reverse=False)
 
@@ -58,7 +58,7 @@ class LegModel(nn.Module):
         feat4_5d = feat4.view(N, S, *feat4.size()[1:]).permute(0, 2, 1, 3, 4).contiguous()
         feat6_5d = feat6.view(N, S, *feat6.size()[1:]).permute(0, 2, 1, 3, 4).contiguous()
 
-        legR, legL = self.local_3d(feat4_5d, feat6_5d)
+        _, legR, legL = self.local_3d(feat4_5d, feat6_5d)
         N, C, S, H, W = legL.size()
         legL = legL.permute(0, 2, 1, 3, 4).contiguous().view(N * S, C, H, -1)
         legR = legR.permute(0, 2, 1, 3, 4).contiguous().view(N * S, C, H, -1)
