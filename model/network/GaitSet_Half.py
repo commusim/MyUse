@@ -96,9 +96,9 @@ class GaitSet_Half(nn.Module):
             self.batch_frame = [0] + np.cumsum(batch_frame).tolist()
         n = silho.size(0)
         x = silho.unsqueeze(2)
-        N, S, C, W, H = x.size()
+        N, S, C, H, W = x.size()
         del silho
-        x = torch.split(x, H // 2, 3)
+        x = torch.split(x, H // 2, 3)[1]
         x = self.set_layer1(x)
         x = self.set_layer2(x)
 

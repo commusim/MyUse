@@ -100,6 +100,7 @@ class GaussianSampleST(nn.Module):
 
         a = torch.arange(0, W).view(1, 1, -1).float().cuda().detach()
         b = torch.arange(0, H).view(1, 1, -1).float().cuda().detach()
+
         mu_x = mu_x.view(-1, atten_out_w, 1)
         mu_y = mu_y.view(-1, atten_out_h, 1)
         sigma2 = sigma2.view(-1, 1, 1)

@@ -230,10 +230,11 @@ class MixSample(GaussianSample):
         eps_tensor_w = self.eps * torch.ones(W).cuda().detach()
         Fx = Fx / torch.max(torch.sum(Fx, 2, keepdim=True), eps_tensor_w)
         Fy = Fy / torch.max(torch.sum(Fy, 2, keepdim=True), eps_tensor_h)
+
         """ spatial sampling (gaussian) """
-        Fyv = Fy.view(Fy.size(0), 1, Fy.size(1), Fy.size(2))
-        Fxv = Fx.view(Fx.size(0), 1, Fx.size(1), Fx.size(2))
-        Fxt = torch.transpose(Fxv, 2, 3)
+        Fyv = Fy.view(Fy.size(0), 1, Fy.size(1), Fy.size(2)).unsqueeze(1)
+        Fxv = Fx.view(Fx.size(0), 1, Fx.size(1), Fx.size(2)).unsqueeze(1)
+        Fxt = torch.transpose(Fxv, 2+1, 3+1)
         glimpse = torch.matmul(Fyv, torch.matmul(x, Fxt))
         if self.reverse == True:
             Fyt = torch.transpose(Fyv, 2, 3)
@@ -244,6 +245,7 @@ class MixSample(GaussianSample):
         pad_t = (self.out_h - x_h) // 2
         pad_b = self.out_h - pad_t - x_h
         glimpse = F.pad(glimpse, pad=(0, 0, pad_t, pad_b))
+
         """ temporal sampling (trilinear) """
         # reshape x
         x = glimpse.view(N, C, T, self.out_h * self.out_w)

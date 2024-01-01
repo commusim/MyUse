@@ -60,7 +60,6 @@ class Model:
         '''GaitPart'''
         self.encoder = GaitPart().float()
         # self.encoder = GaitPart_Half().float()
-        # self.encoder = GaitPart_HPP().float()
         '''GaitLocal'''
         # self.encoder = GaitLocal().float()
         # self.encoder = GaitLocal_part().float()
@@ -193,7 +192,6 @@ class Model:
             # 这个主要用于多样本的并行测试。和model中的collate_fn()呼应。测试时不同样本长度不同不能用普通方式组成batch。
             # 代码中将样本按卡的数目重新分配拼接成大的“样本”，从而实现最小空间浪费的批量测试。
             self.restore_iter += 1
-            self.optimizer.zero_grad()  # 梯度清零
 
             for i in range(len(seq)):
                 # seq[i] = self.np2var(seq[i]).float()
@@ -221,9 +219,9 @@ class Model:
             self.full_loss_num.append(full_loss_num.mean().data.cpu().numpy())  # loss不为0的数量
             self.dist_list.append(mean_dist.mean().data.cpu().numpy())
 
-            if loss > 1e-9:  # 如果loss大于阈值，反向传播Adam优化
-                loss.backward()
-                self.optimizer.step()
+
+            loss.backward()
+            self.optimizer.step()
 
             if self.restore_iter % 1000 == 0:  # 打印100次迭代的训练时间
                 print("100次训练时间", datetime.now() - _time1)

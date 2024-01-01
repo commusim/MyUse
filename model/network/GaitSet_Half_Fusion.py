@@ -13,18 +13,12 @@ class GaitSet_Half_Fusion(nn.Module):
 
         _set_in_channels = 1  # 输入的是二值图，所以channels为1
         _set_channels = [32, 64, 128]  # 这是C1，C2，C3，C4，C5，C6的channel
-        self.set_layer1 = SetBlock(BasicConv2d(_set_in_channels, _set_channels[0], 5,
-                                               padding=2))  # 这是第一层卷积C1，in_channel=1，output_channel=32，最后一个参数默认为False，不要进行池化操作
-        self.set_layer2 = SetBlock(BasicConv2d(_set_channels[0], _set_channels[0], 3, padding=1),
-                                   True)  # 这是第二层卷积C2，in_channel=32，out_putchannel=32，最后一个参数为True，要进行池化操作,这实际有两层：一层卷积，一层池化；池化层的kernel_size=2
-        self.set_layer3 = SetBlock(BasicConv2d(_set_channels[0], _set_channels[1], 3,
-                                               padding=1))  # 这是第三层卷积C3，in_channel=32，output_channel=64，最后一个参数默认为False，不要进行池化操作
-        self.set_layer4 = SetBlock(BasicConv2d(_set_channels[1], _set_channels[1], 3, padding=1),
-                                   True)  # 这是第四层卷积C4，in_channel=64，out_putchannel=64，最后一个参数为True，要进行池化操作,这实际有两层：一层卷积，一层池化；池化层的kernel_size=2
-        self.set_layer5 = SetBlock(BasicConv2d(_set_channels[1], _set_channels[2], 3,
-                                               padding=1))  # 这是第五层卷积C5，in_channel=64，output_channel=128，最后一个参数默认为False，不要进行池化操作
-        self.set_layer6 = SetBlock(BasicConv2d(_set_channels[2], _set_channels[2], 3,
-                                               padding=1))  # 这是第六层卷积C6，in_channel=128，output_channel=128，最后一个参数默认为False，不要进行池化操作
+        self.set_layer1 = SetBlock(BasicConv2d(_set_in_channels, _set_channels[0], 5, padding=2))
+        self.set_layer2 = SetBlock(BasicConv2d(_set_channels[0], _set_channels[0], 3, padding=1), True)
+        self.set_layer3 = SetBlock(BasicConv2d(_set_channels[0], _set_channels[1], 3, padding=1))
+        self.set_layer4 = SetBlock(BasicConv2d(_set_channels[1], _set_channels[1], 3, padding=1), True)
+        self.set_layer5 = SetBlock(BasicConv2d(_set_channels[1], _set_channels[2], 3, padding=1))
+        self.set_layer6 = SetBlock(BasicConv2d(_set_channels[2], _set_channels[2], 3, padding=1))
 
         # MGP这一部分的CNN与池化操作
         _gl_in_channels = 32
@@ -45,9 +39,27 @@ class GaitSet_Half_Fusion(nn.Module):
         # self.fc_bin = nn.Parameter(
         #     nn.init.xavier_uniform_(  # xavier思想是保持输入前后方差，uniform是均匀初始化，normal是正态初始化
         #         torch.zeros(sum(self.bin_num) * 2, 128, hidden_dim)))  # hidden_dim:256
-        self.Backbone = Backbone()
 
+        self.bset_layer1 = SetBlock(BasicConv2d(_set_in_channels, _set_channels[0], 5, padding=2))
+        self.bset_layer2 = SetBlock(BasicConv2d(_set_channels[0], _set_channels[0], 3, padding=1), True)
+        self.bset_layer3 = SetBlock(BasicConv2d(_set_channels[0], _set_channels[1], 3, padding=1))
+        self.bset_layer4 = SetBlock(BasicConv2d(_set_channels[1], _set_channels[1], 3, padding=1), True)
+        self.bset_layer5 = SetBlock(BasicConv2d(_set_channels[1], _set_channels[2], 3, padding=1))
+        self.bset_layer6 = SetBlock(BasicConv2d(_set_channels[2], _set_channels[2], 3, padding=1))
 
+        _gl_in_channels = 32
+        _gl_channels = [64, 128]
+        self.bgl_layer1 = BasicConv2d(_gl_in_channels, _gl_channels[0], 3, padding=1)
+        self.bgl_layer2 = BasicConv2d(_gl_channels[0], _gl_channels[0], 3, padding=1)
+        self.bgl_layer3 = BasicConv2d(_gl_channels[0], _gl_channels[1], 3, padding=1)
+        self.bgl_layer4 = BasicConv2d(_gl_channels[1], _gl_channels[1], 3, padding=1)
+        self.bgl_pooling = nn.MaxPool2d(2)
+
+        self.feature_fusion = nn.Sequential(
+            nn.Conv2d(256, 128, kernel_size=1, bias=False),
+            # nn.BatchNorm3d(128),
+            nn.ReLU(inplace=True),
+        )
         for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.Conv1d)):
                 nn.init.xavier_uniform_(m.weight.data)
@@ -99,28 +111,44 @@ class GaitSet_Half_Fusion(nn.Module):
             self.batch_frame = [0] + np.cumsum(batch_frame).tolist()
         n = silho.size(0)
         x = silho.unsqueeze(2)
-        N, S, C, W, H = x.size()
+        N, S, C, H, W = x.size()
         del silho
-        bottom = torch.split(x, H // 2, 3)
-        bottom_feature = self.Backbone(bottom)
+        bx = torch.split(x, H // 2, 3)[1]
 
         x = self.set_layer1(x)
         x = self.set_layer2(x)
+        bx = self.bset_layer1(bx)
+        bx = self.bset_layer2(bx)
 
         gl = self.gl_layer1(self.frame_max(x)[0])
         gl = self.gl_layer2(gl)
         gl = self.gl_pooling(gl)
+        bgl = self.bgl_layer1(self.frame_max(bx)[0])
+        bgl = self.bgl_layer2(bgl)
+        bgl = self.bgl_pooling(bgl)
 
         x = self.set_layer3(x)
         x = self.set_layer4(x)
         gl = self.gl_layer3(gl + self.frame_max(x)[0])
         gl = self.gl_layer4(gl)
+        bx = self.bset_layer3(bx)
+        bx = self.bset_layer4(bx)
+        bgl = self.bgl_layer3(bgl + self.frame_max(bx)[0])
+        bgl = self.bgl_layer4(bgl)
 
         x = self.set_layer5(x)
         x = self.set_layer6(x)
         x = self.frame_max(x)[0]
         gl = gl + x
+        bx = self.set_layer5(bx)
+        bx = self.set_layer6(bx)
+        bx = self.frame_max(bx)[0]
+        bgl = bgl + bx
 
+        split = torch.split(gl,gl.size()[2]//2,2)
+        bottom_fusion = torch.cat([split[1],bgl],1)
+        bottom_fusion = self.feature_fusion(bottom_fusion)
+        gl = torch.cat([split[0],bottom_fusion],2)
 
         feature = list()
         n, c, h, w = gl.size()

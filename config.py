@@ -26,16 +26,17 @@ conf = {
         # 'model_name': 'GaitSet_(8,8)',
         'model_name': 'GaitSet_Half_(8,8)',
         # 'model_name': 'GaitSet_Half_Fusion_(8,8)',
+        # 'model_name': 'GaitSet_HPP_(8,8)',
 
         # 'model_name': 'GaitLocal_(8,8)',
         # 'model_name': 'GaitLocal_part_(8,8)',
 
         # 'model_name': 'GaitPart_(8,8)',
         # 'model_name': 'GaitPart_Half_(8,8)',
+        # 'model_name': 'GaitLocal_HPP_(8,8)',
 
         # 'model_name': 'GaitSA_(8,8)',
         # 'model_name': 'GaitSA_prior_(8,8)',
-
 
     },
 }

@@ -8,14 +8,13 @@ input_data = torch.rand(n, s, h, w).cuda()
 hidden_dim = 256
 
 '''GaitSet'''
-# encoder = GaitSet(hidden_dim)   
-# encoder = GaitSet_Half(hidden_dim)   
-# encoder = GaitSet_Half_Fusion(hidden_dim)
-# encoder = GaitSet_HPP(hidden_dim)
+# encoder = GaitSet(hidden_dim).cuda()
+# encoder = GaitSet_Half(hidden_dim).cuda()
+# encoder = GaitSet_Half_Fusion(hidden_dim).cuda()
+# encoder = GaitSet_HPP(hidden_dim).cuda()
 
 '''GaitPart'''
 # encoder = GaitPart().cuda()
-# encoder = GaitPart_HPP().cuda()
 encoder = GaitPart_Half().cuda()
 '''GaitLocal'''
 # encoder = GaitLocal().cuda()

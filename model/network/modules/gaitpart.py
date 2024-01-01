@@ -1,80 +1,141 @@
-import copy
+import pdb
 import torch
+import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 
-def clones(module, N):
-    "Produce N identical layers."
-    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
-
-
-class BasicConv1d(nn.Module):
+class BasicConv2d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
-        super(BasicConv1d, self).__init__()
-        self.conv = nn.Conv1d(in_channels, out_channels,
-                              kernel_size, bias=False, **kwargs)
+        super(BasicConv2d, self).__init__()
+        self.conv = nn.Conv2d(in_channels,
+                              out_channels,
+                              kernel_size,
+                              bias=False,
+                              **kwargs)
 
     def forward(self, x):
-        ret = self.conv(x)
-        return ret
+        x = self.conv(x)
+        return F.leaky_relu(x, inplace=True)
 
 
-class TemporalFeatureAggregator(nn.Module):
-    def __init__(self, in_channels, squeeze=4, parts_num=16):
-        super(TemporalFeatureAggregator, self).__init__()
-        hidden_dim = int(in_channels // squeeze)
-        self.parts_num = parts_num
-
-        # MTB1
-        conv3x1 = nn.Sequential(
-            BasicConv1d(in_channels, hidden_dim, 3, padding=1),
-            nn.LeakyReLU(inplace=True),
-            BasicConv1d(hidden_dim, in_channels, 1))
-        self.conv1d3x1 = clones(conv3x1, parts_num)
-        self.avg_pool3x1 = nn.AvgPool1d(3, stride=1, padding=1)
-        self.max_pool3x1 = nn.MaxPool1d(3, stride=1, padding=1)
-
-        # MTB1
-        conv3x3 = nn.Sequential(
-            BasicConv1d(in_channels, hidden_dim, 3, padding=1),
-            nn.LeakyReLU(inplace=True),
-            BasicConv1d(hidden_dim, in_channels, 3, padding=1))
-        self.conv1d3x3 = clones(conv3x3, parts_num)
-        self.avg_pool3x3 = nn.AvgPool1d(5, stride=1, padding=2)
-        self.max_pool3x3 = nn.MaxPool1d(5, stride=1, padding=2)
-
-        # Temporal Pooling, TP
-        self.TP = torch.max
+class FConv(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, padding, p=1):
+        super().__init__()
+        self.conv = BasicConv2d(in_channels,
+                                out_channels,
+                                kernel_size,
+                                padding=padding)
+        self.p = p
 
     def forward(self, x):
-        """
-          Input:  x,   [n, c, s, p]
-          Output: ret, [n, c, p]
-        """
-        n, c, s, p = x.size()
-        x = x.permute(3, 0, 1, 2).contiguous()  # [p, n, c, s]
-        feature = x.split(1, 0)  # [[1, n, c, s], ...]
-        x = x.view(-1, c, s)
+        N, C, H, W = x.size()
+        stripes = torch.chunk(x, self.p, dim=2)
+        concated = torch.cat(stripes, dim=0)
+        out = F.leaky_relu(self.conv(concated), inplace=False)
+        out = torch.cat(torch.chunk(out, self.p, dim=0), dim=2)
+        return out
 
-        # MTB1: ConvNet1d & Sigmoid
-        logits3x1 = torch.cat([conv(_.squeeze(0)).unsqueeze(0)
-                               for conv, _ in zip(self.conv1d3x1, feature)], 0)
-        scores3x1 = torch.sigmoid(logits3x1)
-        # MTB1: Template Function
-        feature3x1 = self.avg_pool3x1(x) + self.max_pool3x1(x)
-        feature3x1 = feature3x1.view(p, n, c, s)
-        feature3x1 = feature3x1 * scores3x1
 
-        # MTB2: ConvNet1d & Sigmoid
-        logits3x3 = torch.cat([conv(_.squeeze(0)).unsqueeze(0)
-                               for conv, _ in zip(self.conv1d3x3, feature)], 0)
-        scores3x3 = torch.sigmoid(logits3x3)
-        # MTB2: Template Function
-        feature3x3 = self.avg_pool3x3(x) + self.max_pool3x3(x)
-        feature3x3 = feature3x3.view(p, n, c, s)
-        feature3x3 = feature3x3 * scores3x3
+class FPFE(nn.Module):
+    def __init__(self):
+        super().__init__()
 
-        # Temporal Pooling
-        ret = self.TP(feature3x1 + feature3x3, dim=-1)[0]  # [p, n, c]
-        ret = ret.permute(1, 2, 0).contiguous()  # [n, p, c]
-        return ret
+        self.layer1 = FConv(1, 32, 5, 2, p=1)
+        self.layer2 = FConv(32, 32, 3, 1, p=1)
+        self.maxpool = nn.MaxPool2d(2, stride=2)
+
+        self.layer3 = FConv(32, 64, 3, 1, p=4)
+        self.layer4 = FConv(64, 64, 3, 1, p=4)
+
+        self.layer5 = FConv(64, 128, 3, 1, p=8)
+        self.layer6 = FConv(128, 128, 3, 1, p=8)
+
+    def forward(self, x):
+        N, T, C, H, W = x.size()
+        out = x.view(-1, C, H, W)
+
+        out = self.maxpool(self.layer2(self.layer1(out)))
+        out = self.maxpool(self.layer4(self.layer3(out)))
+        out = self.layer6(self.layer5(out))
+
+        _, outC, outH, outW = out.size()
+        out = out.view(N, T, outC, outH, outW)
+        return out
+
+
+class MTB1(nn.Module):
+    def __init__(self, channels=128, num_part=16, squeeze_ratio=4):
+        super().__init__()
+
+        self.avgpool = nn.AvgPool1d(3, padding=1, stride=1)
+        self.maxpool = nn.MaxPool1d(3, padding=1, stride=1)
+
+        hidden_channels = channels // squeeze_ratio
+        self.conv1 = nn.Conv1d(channels * num_part,
+                               hidden_channels * num_part,
+                               kernel_size=3,
+                               padding=1,
+                               groups=num_part)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv1d(hidden_channels * num_part,
+                               channels * num_part,
+                               kernel_size=1,
+                               padding=0,
+                               groups=num_part)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        N, C, T = x.size()
+
+        Sm = self.avgpool(x) + self.maxpool(x)
+        attention = self.sigmoid(self.conv2(self.relu(self.conv1(x))))
+        out = Sm * attention
+        return out
+
+
+class MTB2(nn.Module):
+    def __init__(self, channels=128, num_part=16, squeeze_ratio=4):
+        super().__init__()
+
+        self.avgpool = nn.AvgPool1d(5, padding=2, stride=1)
+        self.maxpool = nn.MaxPool1d(5, padding=2, stride=1)
+
+        hidden_channels = channels // squeeze_ratio
+        self.conv1 = nn.Conv1d(channels * num_part,
+                               hidden_channels * num_part,
+                               kernel_size=3,
+                               padding=1,
+                               groups=num_part)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv1d(hidden_channels * num_part,
+                               channels * num_part,
+                               kernel_size=3,
+                               padding=1,
+                               groups=num_part)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        N, C, T = x.size()
+
+        Sm = self.avgpool(x) + self.maxpool(x)
+        attention = self.sigmoid(self.conv2(self.relu(self.conv1(x))))
+        out = Sm * attention
+        return out
+
+
+class MCM(nn.Module):
+    def __init__(self, channels, num_part, squeeze_ratio=4):
+        super().__init__()
+        self.layer1 = MTB1(channels, num_part, squeeze_ratio)
+        self.layer2 = MTB2(channels, num_part, squeeze_ratio)
+
+    def forward(self, x):
+        N, T, C, M = x.size()
+        out = x.permute(0, 3, 2, 1).contiguous().view(N, M * C, T)
+        out = self.layer1(out) + self.layer2(out)
+        out = out.max(2)[0]
+        return out.view(N, M, C)
+
+
+

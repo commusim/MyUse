@@ -11,9 +11,17 @@ from model.network.modules.local_SA import LocalBlock, Backbone, LocalizationST,
 from model.network.utils import HP, MCM, SeparateFc
 
 
-class GaitSA(nn.Module):
+class Weight(nn.Module):
     def __init__(self):
-        super(GaitSA, self).__init__()
+        super(Weight,self).__init__()
+
+    def forward(self):
+        weight = 1
+        return weight
+
+class NewModel(nn.Module):
+    def __init__(self):
+        super(NewModel, self).__init__()
 
         in_c = [1, 32, 64, 128]
         bin_num = [8, 4, 2, 1]
@@ -32,7 +40,7 @@ class GaitSA(nn.Module):
         self.HP = HP(p=16)
         self.fc = nn.Linear(55, 16)
 
-    def forward(self, silho, restore_iter, batch_frame=None):
+    def forward(self, silho, batch_frame=None):
         # n: batch_size, s: frame_num, k: keypoints_num, c: channel
         if batch_frame is not None:
             # 取到batch_frame前_个非0数据

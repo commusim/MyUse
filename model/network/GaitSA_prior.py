@@ -4,6 +4,7 @@
     we creatively just take the bottom half of the figure, with NM&BG accuracy low,
     surprised to find the CL accuracy rise some percents, so we get this net to examine
 """
+import copy
 
 import torch
 import torch.nn as nn
@@ -20,6 +21,7 @@ class GaitSA_prior(nn.Module):
         out_features = 256
 
         self.Backbone = Backbone()
+        self.Backbone_bottom = copy.deepcopy(Backbone())
         self.Block1 = LocalBlock(LocalizationST, GaussianSampleST, C3DBlock,
                                  128, 64, 64, reverse=False)
         self.Block2 = LocalBlock(LocalizationST, GaussianSampleST, C3DBlock,
@@ -69,7 +71,7 @@ class GaitSA_prior(nn.Module):
         x = x.view(-1, C, H, W)
 
         bottom = torch.split(x, H // 2, 2)[1]
-        _, bottom = self.Backbone(bottom)
+        _, bottom = self.Backbone_bottom(bottom)
         bottom_5d = bottom.view(N, S, *bottom.size()[1:]).permute(0, 2, 1, 3, 4).contiguous()
         bottom_5d = self.spatial_pool_half(bottom_5d)
         bottom_5d = self.temporal_pool_half(bottom_5d)

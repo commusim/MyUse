@@ -2,7 +2,8 @@ import torch.nn as nn
 import torch
 import numpy as np
 import torch.nn.init as init
-from model.network.modules.local3d import LocalBlock3D, Backbone, LocalizationST, GaussianSampleST, C3DBlock
+from model.network.modules.local3d import Backbone, LocalizationST, GaussianSampleST
+from model.network.modules.local3d import LocalBlock3D,Localization3D,MixSample,C3DBlock
 from model.network.utils import HP, MCM, SeparateFc
 from tensorboardX import SummaryWriter
 
@@ -14,7 +15,7 @@ class GaitLocal(nn.Module):
         out_features = 256
 
         self.Backbone = Backbone()
-        self.Block1 = LocalBlock3D(LocalizationST, GaussianSampleST, C3DBlock,
+        self.Block1 = LocalBlock3D(Localization3D,MixSample, C3DBlock,
                                    128, 64, 64, 128,
                                    reverse=False)
         # self.Block2 = LocalBlock3D(LocalizationST, GaussianSampleST, C3DBlock,
@@ -54,9 +55,10 @@ class GaitLocal(nn.Module):
         feat4_5d = feat4.view(N, S, *feat4.size()[1:]).permute(0, 2, 1, 3, 4).contiguous()
         feat6_5d = feat6.view(N, S, *feat6.size()[1:]).permute(0, 2, 1, 3, 4).contiguous()
         gl = self.Block1(feat4_5d, feat6_5d)
+        del feat4_5d, feat6_5d, feat4, feat6
         # gl = self.Block2(gl, gl)
         # gl = self.Block3(gl, gl)
-        gl = feat6_5d
+        # gl = feat6_5d
         gl = self.spatial_pool(gl)
         gl = self.temporal_pool(gl)
         # [N,M,C(128)]

@@ -78,6 +78,12 @@ class DataSet(tordata.Dataset):
             [self.resolution, self.resolution, -1])[:, :, 0]
                       for _img_path in imgs
                       if osp.isfile(osp.join(flie_path, _img_path))]
+        # for local net 64*44 and 128*88
+        # frame_list = [np.reshape(
+        #     cv2.imread(osp.join(flie_path, _img_path)),
+        #     [64, 44, -1])[:, :, 0]
+        #               for _img_path in imgs
+        #               if osp.isfile(osp.join(flie_path, _img_path))]
         num_list = list(range(len(frame_list)))
         data_dict = xr.DataArray(
             frame_list,

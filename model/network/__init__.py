@@ -13,4 +13,3 @@ from .GaitSA_prior import GaitSA_prior
 
 from .GaitPart import GaitPart
 from .GaitPart_Half import GaitPart_Half
-from .GaitPart_HPP import GaitPart_HPP
