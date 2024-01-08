@@ -15,13 +15,14 @@ hidden_dim = 256
 
 '''GaitPart'''
 # encoder = GaitPart().cuda()
-encoder = GaitPart_Half().cuda()
+# encoder = GaitPart_Half().cuda()
 '''GaitLocal'''
 # encoder = GaitLocal().cuda()
 # encoder = GaitLocal_part().cuda()
 '''GaitSA'''
 # encoder = GaitSA().cuda()
 # encoder = GaitSA_prior().cuda()
+encoder = GaitNet_Half_Fusion().cuda()
 
 feature, part_prob = encoder(input_data)
 

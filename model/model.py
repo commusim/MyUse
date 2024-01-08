@@ -53,12 +53,12 @@ class Model:
 
         self.img_size = img_size  # 64
         '''GaitSet'''
-        # self.encoder = GaitSet(self.hidden_dim).float()
+        self.encoder = GaitSet(self.hidden_dim).float()
         # self.encoder = GaitSet_Half(self.hidden_dim).float()
         # self.encoder = GaitSet_Half_Fusion(self.hidden_dim).float()
         # self.encoder = GaitSet_HPP(self.hidden_dim).float()
         '''GaitPart'''
-        self.encoder = GaitPart().float()
+        # self.encoder = GaitPart().float()
         # self.encoder = GaitPart_Half().float()
         '''GaitLocal'''
         # self.encoder = GaitLocal().float()
@@ -192,6 +192,7 @@ class Model:
             # 这个主要用于多样本的并行测试。和model中的collate_fn()呼应。测试时不同样本长度不同不能用普通方式组成batch。
             # 代码中将样本按卡的数目重新分配拼接成大的“样本”，从而实现最小空间浪费的批量测试。
             self.restore_iter += 1
+            self.optimizer.zero_grad()
 
             for i in range(len(seq)):
                 # seq[i] = self.np2var(seq[i]).float()

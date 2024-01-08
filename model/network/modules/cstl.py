@@ -156,59 +156,48 @@ class SSFL(nn.Module):
 
         return part_classification, weighted_part_vector, selected_part_feature
 
+'''Improved Temporal Self-Attention'''
+class Temporal(nn.Module):
+    def __init__(self, in_planes, out_planes, part_num):
+        super(Temporal, self).__init__()
+        self.in_planes = in_planes  # 128
+        self.out_planes = out_planes  # 128
+        self.part_num = part_num  # 64
 
-class ImpHPP_C():
-    """
-        Horizontal Pyramid Matching for Person Re-identification
-        Arxiv: https://arxiv.org/abs/1804.05275
-        Github: https://github.com/SHI-Labs/Horizontal-Pyramid-Matching
-    """
+        self.score = mlp_sigmoid(in_planes * part_num, in_planes * part_num, 1, groups=part_num)
 
-    def __init__(self, bin_num=None):
-        if bin_num is None:
-            bin_num = [16, 8, 4, 2, 1]
-        self.bin_num = bin_num
-        """F,S,L three level"""
+        self.short_term = nn.ModuleList(
+            [conv_bn(in_planes * part_num, out_planes * part_num, 3, padding=1, groups=part_num),
+             conv_bn(in_planes * part_num, out_planes * part_num, 3, padding=1, groups=part_num)])
 
-    def __call__(self, x):
-        """
-            x  : [n,s, c, h, w]
-            ret: [n,s, c, p]
-        """
-        n, c = x.size()[:2]
-        features = []
-        for b in self.bin_num:
-            z = x.view(n, c, b, -1)
-            z = z.mean(-1) + z.max(-1)[0]
-            features.append(z)
-        return torch.cat(features, -1)
+    def get_frame_level(self, x):
+        return x
+
+    def get_short_term(self, x):
+        n, s, c, h = x.size()
+        # print(x.size())
+        # [n,s,128,64]
+        x = (x.permute(0, 3, 2, 1).contiguous())
+        # print(x.size())
+        # [n,64,128,s]
+        x = x.view(n, -1, s)
+        # print(x.size())
+        # [n,8192,30]
+        temp = self.short_term[0](x)
+        # print(temp.size())
+        short_term_feature = temp + self.short_term[1](temp)
+        return short_term_feature.view(n, h, c, s).permute(0, 3, 2, 1).contiguous()
+
+    def get_long_term(self, x):
+        n, s, c, h = x.size()
+        x = x.permute(0, 3, 2, 1).contiguous()
+        pred_score = self.score(x.view(n, h * c, s)).view(n, h, c, s)
+        long_term_feature = x.mul(pred_score).sum(-1).div(pred_score.sum(-1))
+        long_term_feature = long_term_feature.unsqueeze(1).repeat(1, s, 1, 1)
+        return long_term_feature.permute(0, 1, 3, 2).contiguous()
+
+    def forward(self, x):
+        multi_scale_feature = [self.get_frame_level(x), self.get_short_term(x), self.get_long_term(x)]
+        return multi_scale_feature
 
 
-class ImpHPP_L():
-    """
-        Horizontal Pyramid Matching for Person Re-identification
-        Arxiv: https://arxiv.org/abs/1804.05275
-        Github: https://github.com/SHI-Labs/Horizontal-Pyramid-Matching
-    """
-
-    def __init__(self, channel, part_num, div, bin_num=None):
-        if bin_num is None:
-            bin_num = [16, 8, 4, 2, 1]
-        self.bin_num = bin_num
-        """F,S,L three level"""
-        self.get_3level = MSTE(channel, channel, part_num)
-        self.get_sum_weight = ATA(channel, part_num, div)
-
-    def __call__(self, x):
-        """
-            x  : [n, c, h, w]
-            ret: [n, c, p]
-        """
-        n, c = x.size()[:2]
-        features = []
-        for b in self.bin_num:
-            z = x.view(n, c, b, -1)
-            t_f, t_s, t_l = self.get_3level(z)
-            z = self.get_sum_weight(t_f, t_s, t_l)
-            features.append(z)
-        return torch.cat(features, -1)

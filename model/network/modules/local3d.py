@@ -1,10 +1,9 @@
 import torch.nn as nn
 import torch
-from model.network.local_3d.sample import GaussianSample, TrilinearSample, MixSample
-from model.network.local_3d.sample_st import GaussianSampleST
-from model.network.local_3d.localization import LocalizationST, Localization3D
-from model.network.local_3d.utils import C3DBlock, BasicConv2d, HP, MCM, SeparateFc, FConv
-from model.network.modules.modules import HorizontalPoolingPyramid as HPP
+from model.network.modules.local_3d.sample import GaussianSample, TrilinearSample, MixSample
+from model.network.modules.local_3d.sample_st import GaussianSampleST
+from model.network.modules.local_3d.localization import LocalizationST, Localization3D
+from model.network.modules.local_3d.utils import C3DBlock, BasicConv2d, HP, MCM, SeparateFc, FConv
 
 """     
         local_3d modules 

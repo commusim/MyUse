@@ -23,8 +23,8 @@ conf = {
         'num_workers': 3,
         'frame_num': 30,
 
-        # 'model_name': 'GaitSet_(8,8)',
-        'model_name': 'GaitSet_Half_(8,8)',
+        'model_name': 'GaitSet_(8,8)',
+        # 'model_name': 'GaitSet_Half_(8,8)',
         # 'model_name': 'GaitSet_Half_Fusion_(8,8)',
         # 'model_name': 'GaitSet_HPP_(8,8)',
 

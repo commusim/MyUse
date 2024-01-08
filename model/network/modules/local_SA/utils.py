@@ -1,17 +1,71 @@
-import pdb
 import torch
-import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+__all__ = [
+    'C3DBlock',
+    'BasicConv2d',
+    'FConv',
+    'HP',
+    'MTB1',
+    'MTB2',
+    'MCM',
+    'SeparateFc',
+]
+
+
+class C3DBlock(nn.Module):
+    r""" No BatchNorm or Conv bias """
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.conv1 = nn.Conv3d(in_channels,
+                               out_channels,
+                               kernel_size=3,
+                               padding=1,
+                               stride=1,
+                               bias=False)
+        self.conv2 = nn.Conv3d(out_channels,
+                               out_channels,
+                               kernel_size=3,
+                               padding=1,
+                               stride=1,
+                               bias=False)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        N, C, T, H, W = x.size()
+        out = self.relu(self.conv1(x))
+        out = self.relu(self.conv2(out))
+        return out
+
+
+class CompactBlock(nn.Module):
+    def __init__(self, in_features, out_features, dropout=0.9):
+        super().__init__()
+        self.bn1 = nn.BatchNorm1d(in_features)
+        self.relu = nn.ReLU(inplace=True)
+        self.dropout = nn.Dropout(p=dropout)
+        self.fc = nn.Linear(in_features, out_features)
+        self.bn2 = nn.BatchNorm1d(out_features)
+
+    def forward(self, x):
+        out = self.bn1(x)
+        out = self.relu(out)
+        out = self.dropout(out)
+        out = self.fc(out)
+        out = self.bn2(out)
+        return out
+
 
 class BasicConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
+    def __init__(self, in_channels, out_channels, kernel_size, padding,
+                 **kwargs):
         super(BasicConv2d, self).__init__()
         self.conv = nn.Conv2d(in_channels,
                               out_channels,
                               kernel_size,
                               bias=False,
+                              padding=padding,
                               **kwargs)
 
     def forward(self, x):
@@ -37,30 +91,15 @@ class FConv(nn.Module):
         return out
 
 
-class FPFE(nn.Module):
-    def __init__(self):
+class HP(nn.Module):
+    def __init__(self, p):
         super().__init__()
-
-        self.layer1 = FConv(1, 32, 5, 2, p=1)
-        self.layer2 = FConv(32, 32, 3, 1, p=1)
-        self.maxpool = nn.MaxPool2d(2, stride=2)
-
-        self.layer3 = FConv(32, 64, 3, 1, p=4)
-        self.layer4 = FConv(64, 64, 3, 1, p=4)
-
-        self.layer5 = FConv(64, 128, 3, 1, p=8)
-        self.layer6 = FConv(128, 128, 3, 1, p=8)
+        self.p = p
 
     def forward(self, x):
-        N, T, C, H, W = x.size()
-        out = x.view(-1, C, H, W)
-
-        out = self.maxpool(self.layer2(self.layer1(out)))
-        out = self.maxpool(self.layer4(self.layer3(out)))
-        out = self.layer6(self.layer5(out))
-
-        _, outC, outH, outW = out.size()
-        out = out.view(N, T, outC, outH, outW)
+        N, C, T, H, W = x.size()
+        out = x.view(N, C, T, self.p, -1)
+        out = out.mean(4) + out.max(4)[0]
         return out
 
 
@@ -132,10 +171,24 @@ class MCM(nn.Module):
 
     def forward(self, x):
         N, C, T, M = x.size()
-        out = x.permute(0, 3, 2, 1).contiguous().view(N, M * C, T)
+        out = x.permute(0, 3, 1, 2).contiguous().view(N, M * C, T)
         out = self.layer1(out) + self.layer2(out)
         out = out.max(2)[0]
         return out.view(N, M, C)
 
 
+class SeparateFc(nn.Module):
+    def __init__(self, num_bin, in_dim, out_dim):
+        super().__init__()
+        self.fc = nn.Conv2d(num_bin * in_dim,
+                            num_bin * out_dim,
+                            kernel_size=1,
+                            groups=num_bin,
+                            padding=0,
+                            bias=False)
 
+    def forward(self, x):
+        N, M, C = x.size()
+        out = x.view(N, M * C, 1, 1)
+        out = self.fc(out)
+        return out.view(N, M, -1)

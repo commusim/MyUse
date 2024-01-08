@@ -5,7 +5,7 @@ import torch.nn.init as init
 from model.network.modules.local3d import LocalBlock3D, Backbone, LocalizationST, GaussianSampleST, C3DBlock
 from model.network.utils import HP, MCM, SeparateFc
 from model.network.modules.modules import SetBlockWrapper, HorizontalPoolingPyramid, SeparateFCs, PackSequenceWrapper
-from model.network.modules.gaitpart import MCM, FPFE
+from model.network.modules.gaitpart import FPFE
 from tensorboardX import SummaryWriter
 
 

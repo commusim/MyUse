@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.init as init
-from model.network.modules.local_SA import LocalBlock, Backbone, LocalizationST, GaussianSampleST, C3DBlock
+from model.network.modules.localSA import LocalBlock, Backbone, LocalizationST, GaussianSampleST, C3DBlock
 from model.network.utils import HP, MCM, SeparateFc
 
 

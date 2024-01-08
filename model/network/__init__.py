@@ -13,3 +13,5 @@ from .GaitSA_prior import GaitSA_prior
 
 from .GaitPart import GaitPart
 from .GaitPart_Half import GaitPart_Half
+
+from .GaitCSTL import GaitNet_Half_Fusion

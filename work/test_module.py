@@ -1,10 +1,10 @@
 import torch
-from model.network.modules.local3d import LocalBlock, LocalizationST, GaussianSampleST, C3DBlock
-from model.network.GaitSA_prior import Mymodel
+from model.network.modules.self_attention import Self_attention
+
 '''测试ImpHPP_C'''
 
 # 定义随机输入数据
-n, t, c, h, w = 32, 30, 128, 128, 64
+n, t, c, h, w = 13, 10, 128, 64, 44
 input_data = torch.rand(n, c, t, h, w)
 param_x = torch.rand(n, c, t, h, w)
 #
@@ -20,10 +20,7 @@ param_x = torch.rand(n, c, t, h, w)
 #
 # '''测试local模块'''
 
-
-local_net = LocalBlock(LocalizationST, GaussianSampleST, C3DBlock,
-                       128, 64, 64, 128,
-                       False)
-leg_net = Mymodel()
-out = local_net(input_data, param_x)
-print(out.size())
+if __name__ == '__main__':
+    module = Self_attention(128, 256, 5)
+    out = module(input_data)
+    print(out.size())

@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch
-from model.network.local_SA.sample import GaussianSample, TrilinearSample, MixSample
-from model.network.local_SA.sample_st import GaussianSampleST
-from model.network.local_SA.localization import LocalizationST, Localization3D
+from model.network.modules.local_SA import GaussianSample, TrilinearSample, MixSample
+from model.network.modules.local_SA.sample_st import GaussianSampleST
+from model.network.modules.local_SA.localization import LocalizationST, Localization3D
 from model.network.utils import C3DBlock, BasicConv2d, HP, MCM, SeparateFc, FConv
 
 """     
@@ -167,15 +167,6 @@ class LocalBlock3D(nn.Module):
                                 param_channels, in_channels, local_channels,
                                 reverse)
 
-        self.feature_fusion = nn.Sequential(
-            nn.Conv3d(local_channels * 6 + out_channels,
-                      out_channels,
-                      kernel_size=1,
-                      bias=False),
-            # nn.BatchNorm3d(128),
-            nn.ReLU(inplace=True),
-        )
-
     def forward(self, x, param_x):
         head = self.head(x, param_x.detach())
         torso = self.torso(x, param_x.detach())
@@ -183,8 +174,8 @@ class LocalBlock3D(nn.Module):
         armR = self.armR(x, param_x.detach())
         legL = self.legL(x, param_x.detach())
         legR = self.legR(x, param_x.detach())
-        out = torch.cat([param_x, head, torso, armL, armR, legL, legR], dim=1)
-        out = self.feature_fusion(out)
+        out = [head, torso, armL, armR, legL, legR]
+
         return out
 
 
