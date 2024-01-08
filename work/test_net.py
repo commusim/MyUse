@@ -22,7 +22,7 @@ hidden_dim = 256
 '''GaitSA'''
 # encoder = GaitSA().cuda()
 # encoder = GaitSA_prior().cuda()
-encoder = GaitNet_Half_Fusion().cuda()
+encoder = GaitCSTL_Half_Fusion().cuda()
 
 feature, part_prob = encoder(input_data)
 

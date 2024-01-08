@@ -156,6 +156,8 @@ class SSFL(nn.Module):
 
         return part_classification, weighted_part_vector, selected_part_feature
 
+
+
 '''Improved Temporal Self-Attention'''
 class Temporal(nn.Module):
     def __init__(self, in_planes, out_planes, part_num):
@@ -201,3 +203,56 @@ class Temporal(nn.Module):
         return multi_scale_feature
 
 
+class VPFFS(nn.Module):
+    'Vertical Pooling Feature Frame Select'
+    def __init__(self, in_channel, out_channel, part_num, class_num):
+        super(VPFFS, self).__init__()
+        self.in_channel = in_channel
+        self.out_channel = out_channel
+        self.part_num = part_num
+        self.class_num = class_num
+
+        self.part_score = mlp_sigmoid(in_channel * part_num * 3, part_num, 1, groups=part_num)
+
+        self.decay_channel = conv1d(in_channel * part_num * 3, out_channel * part_num, 1, groups=part_num)
+
+        self.bn = nn.ModuleList()
+        for i in range(part_num):
+            self.bn.append(nn.BatchNorm1d(in_channel))
+
+        self.fc = nn.Parameter(
+            init.xavier_uniform_(
+                torch.zeros(1, in_channel, class_num)))
+
+    def forward(self, feature_VP):
+        n, s, c, p = feature_VP.size()
+
+        part_score = self.part_score(feature_VP.permute(0, 3, 2, 1).contiguous().view(n, -1, s))
+        part_score = part_score.view(n, p, 1, s)
+
+        cat_feature = self.decay_channel(feature_VP.permute(0, 3, 2, 1).contiguous().view(n, -1, s)).view(n, p, c, s)
+
+        weighted_part_vector = (cat_feature * part_score).sum(-1) / part_score.sum(-1)  # nxpxc
+
+        # part classification
+        part_feature = []
+        for idx, block in enumerate(self.bn):
+            part_feature.append(block(weighted_part_vector[:, idx, :]).unsqueeze(0))
+        part_feature = torch.cat(part_feature, 0)
+
+        part_classification = part_feature.matmul(self.fc)
+
+        # part selection
+        max_part_idx = part_score.max(-1)[1].squeeze(-1)
+
+        selected_part_feature = []
+        for i in range(self.part_num):
+            s_idx = max_part_idx[:, i]
+            what = feature_VP[range(0, n), s_idx, :, i]
+            selected_part_feature.append(feature_VP[range(0, n), s_idx, :, i].view(n, c, -1))
+
+        selected_part_feature = torch.cat(selected_part_feature, 2).permute(2, 0, 1).contiguous()
+
+        weighted_part_vector = weighted_part_vector.permute(1, 0, 2).contiguous()
+
+        return part_classification, weighted_part_vector, selected_part_feature

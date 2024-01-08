@@ -23,8 +23,8 @@ __all__ = [
 
 
 def ProgressiveOffset(
-    x: Tensor,
-    k: int = 2,
+        x: Tensor,
+        k: int = 2,
 ) -> Tensor:
     N, T = x.shape
     offset = torch.cat([x.detach(), torch.zeros(N, k).cuda().float()], dim=1)
@@ -116,7 +116,7 @@ class GaussianSampleST(nn.Module):
         Fyv = Fy.view(Fy.size(0), 1, Fy.size(1), Fy.size(2))
         Fxv = Fx.view(Fx.size(0), 1, Fx.size(1), Fx.size(2))
         Fxt = torch.transpose(Fxv, 2, 3)
-        x = x.permute(0, 2, 1, 3, 4).contiguous().reshape(N*T, C, H, W)
+        x = x.permute(0, 2, 1, 3, 4).contiguous().reshape(N * T, C, H, W)
         glimpse = torch.matmul(Fyv, torch.matmul(x, Fxt))
         if self.reverse:
             Fyt = torch.transpose(Fyv, 2, 3)
@@ -133,8 +133,8 @@ class GaussianSampleST(nn.Module):
         grid = torch.cat([mu_s, mu_t], -1)
         """ temporal sampling """
         _, _c, _h, _w = glimpse.size()
-        glimpse = glimpse.reshape(N, -1, _c*_h*_w).permute(0, 2, 1).contiguous()
-        glimpse = F.grid_sample(glimpse[:,:,:,None], grid, align_corners=False)
+        glimpse = glimpse.reshape(N, -1, _c * _h * _w).permute(0, 2, 1).contiguous()
+        glimpse = F.grid_sample(glimpse[:, :, :, None], grid, align_corners=False)
         glimpse = glimpse.view(N, _c, _h, _w, -1).permute(0, 1, 4, 2, 3).contiguous()
 
         out = glimpse * gamma_t.view(-1, 1, 1, 1, 1)
