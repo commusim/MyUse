@@ -5,7 +5,14 @@ from model.network.modules.local_3d.sample_st import GaussianSampleST
 from model.network.modules.local_3d.localization import LocalizationST, Localization3D
 from model.network.modules.local_3d.utils import C3DBlock, BasicConv2d, HP, MCM, SeparateFc, FConv
 
-"""     
+__all__ = [
+    'Backbone',
+    'FBackbone',
+    'LocalBranch',
+    'LocalBlock3D',
+    'LocalCNN3D_ST'
+]
+"""
         local_3d modules 
 modified from local_3d delivered in 2021
 used it to extract the origin sequence instead of feature
@@ -114,19 +121,12 @@ class LocalBranch(nn.Module):
 
         in_h, in_w, out_h, out_w = self._in_out_hw[human_part]
         dt, dx, dy, sigma_t, sigma, delta_t, delta = self._offsets[human_part]
-        self.sampler = sampler(in_channels,
-                               out_channels,
-                               out_h,
-                               out_w,
-                               in_h,
-                               in_w,
-                               dt,
-                               dx,
-                               dy,
-                               sigma_t,
-                               sigma,
-                               delta_t,
-                               delta,
+        self.sampler = sampler(in_channels, out_channels,
+                               out_h, out_w,
+                               in_h, in_w,
+                               dt, dx, dy,
+                               sigma_t, sigma,
+                               delta_t, delta,
                                reverse=reverse)
 
     def forward(self, x, param_x):
@@ -299,7 +299,7 @@ class LocalCNN3D_ST(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, silho):
-        """ N: batch size
+        """  N: batch size
              T: num of frames
              C: channels
              H: height
