@@ -1,29 +1,36 @@
-import torch
+import os
 
+import torch
+import torch.nn as nn
+import cv2
+import os
+import matplotlib.pyplot as plt
 from model.network import *
 
-n, s, c, h, w = 10, 5, 1, 64, 44
-input_data = torch.rand(n, s, h, w).cuda()
+path = "E:/python/data/gait/64x44/001/nm-01/"
+angles = os.listdir(path)
+input_data = []
+_input_data = []
+for angle in angles[2:9]:
+    pic_path = os.path.join(path, angle)
+    pic_paths = os.listdir(pic_path)
+    for pic in pic_paths[0:11]:
+        pic = os.path.join(pic_path, pic)
+        fig = cv2.imread(pic)[:, :, 0]
+        fig = torch.tensor(fig).unsqueeze(0).unsqueeze(0).float()
+        img = fig.cuda()
+        _input_data.append(img)
+    input_data.append(torch.cat(_input_data, 1))
+    _input_data = []
+input_data = torch.cat(input_data, 0)
 
-hidden_dim = 256
 
-'''GaitSet'''
-# encoder = GaitSet(hidden_dim).cuda()
-# encoder = GaitSet_Half(hidden_dim).cuda()
-# encoder = GaitSet_Half_Fusion(hidden_dim).cuda()
-# encoder = GaitSet_HPP(hidden_dim).cuda()
 
-'''GaitPart'''
-# encoder = GaitPart().cuda()
-# encoder = GaitPart_Half().cuda()
-'''GaitLocal'''
-# encoder = GaitLocal().cuda()
-# encoder = GaitLocal_part().cuda()
-'''GaitSA'''
-# encoder = GaitSA().cuda()
-# encoder = GaitSA_prior().cuda()
-encoder = GaitLocal().cuda()
+if __name__=="__main__":
+    encoder = GaitCSTL_Dynamic().float()
+    encoder = nn.DataParallel(encoder).cuda()
+    feature, part_prob = encoder(input_data)
 
-feature, part_prob = encoder(input_data)
 
-print(feature, part_prob)
+
+    print(feature, part_prob)

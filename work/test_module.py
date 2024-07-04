@@ -1,12 +1,13 @@
 import torch
 from model.network.modules.self_attention import Self_attention
+from model.network.Dynamic import *
 
 '''测试ImpHPP_C'''
 
 # 定义随机输入数据
-n, t, c, h, w = 13, 10, 128, 64, 44
-input_data = torch.rand(n, c, t, h, w)
-param_x = torch.rand(n, c, t, h, w)
+n, s, c, h, w = 2, 4, 32, 16, 11
+input_data = torch.rand(n, s, c, h, w)
+
 #
 # # 创建 ImpHPP 实例
 # part_num = 64  # 选择一个合适的 part_num
@@ -21,6 +22,9 @@ param_x = torch.rand(n, c, t, h, w)
 # '''测试local模块'''
 
 if __name__ == '__main__':
-    module = Self_attention(128, 256, 5)
-    out = module(input_data)
+    module1 = Dynamic(c, h, w, "max")
+    module2 = Regression(c, h, w, "max")
+
+    out = module1(input_data)
+    out = module2(out)
     print(out.size())
