@@ -33,6 +33,7 @@ class Self_attention(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(out_channels * 2 * 2 * 2, num_params),
             nn.BatchNorm1d(num_params),
+
         )
 
     def forward(self, x):
@@ -41,3 +42,19 @@ class Self_attention(nn.Module):
         out = self.fc(out).unsqueeze(dim=2)
         return out.unsqueeze(dim=2).unsqueeze(dim=2)
 
+class DymaicAttention(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+
+    def forward(self,x):
+        """"
+        :param x:[B,S,1,H,W]
+        :return: dy[B,S-1,1,H,W]
+        """
+        b,s,c,h,w = x.size()
+        dy = torch.zeros([b,s-1,c,h,w])
+        for index in range(s-1):
+            dy[:,index,:] = x[:,index+1,:]-x[:,index,:]
+
+        return dy

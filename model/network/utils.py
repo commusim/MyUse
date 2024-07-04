@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 __all__ = [
+    'CompactBlock',
     'C3DBlock',
     'BasicConv2d',
     'FConv',

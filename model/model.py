@@ -206,6 +206,11 @@ class Model:
             target_label = [train_label_set.index(l) for l in label]
             target_label = self.np2ts(np.array(target_label)).long()
 
+            # 用于3DLocal训练的模型损失
+
+
+
+
             triplet_feature = feature.permute(1, 0, 2).contiguous()
             triplet_label = target_label.unsqueeze(0).repeat(triplet_feature.size(0), 1)
             (full_loss_metric, hard_loss_metric, mean_dist, full_loss_num) = self.triplet_loss(triplet_feature,

@@ -1,7 +1,10 @@
 import pdb
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 __all__ = [
     'GaussianSample',
@@ -45,12 +48,15 @@ class GaussianSample(nn.Module):
 
     def forward(self, x, loc_params):
         N, C, T, H, W = x.size()
+        """输入特征图的大小"""
         atten_out_t = T
         atten_out_w = self.out_w
         atten_out_h = int(round(atten_out_w / self.in_w * self.in_h))
+
         anchor_t = T * self.dt_offset
         anchor_x = W * self.dx_offset
         anchor_y = H * self.dy_offset
+
         """ get localization parameters """
         dt, dx, dy, log_sigma2, log_delta_t, log_delta, log_gamma = loc_params
         dt = torch.tanh(dt) * T / 2.0 + anchor_t
@@ -60,6 +66,7 @@ class GaussianSample(nn.Module):
         delta_t = torch.exp(log_delta_t) * self.delta_t_offset
         delta = torch.exp(log_delta) * self.delta_offset
         gamma = torch.sigmoid(log_gamma)
+
         """ set up transform matrix """
         grid_t_i = torch.arange(0,
                                 atten_out_t).view(1,
@@ -74,12 +81,12 @@ class GaussianSample(nn.Module):
         mu_t = dt + (grid_t_i - atten_out_t / 2.0) * delta_t
         mu_x = dx + (grid_x_i - atten_out_w / 2.0) * delta
         mu_y = dy + (grid_y_i - atten_out_h / 2.0) * delta
-        # spatial index
+        # 特征图空间索引
         c = torch.arange(0, T).view(1, 1, -1).float().cuda().detach()
         a = torch.arange(0, W).view(1, 1, -1).float().cuda().detach()
         b = torch.arange(0, H).view(1, 1, -1).float().cuda().detach()
         # mu_x
-        mu_t = mu_t.view(-1, atten_out_t, 1)  # ?????
+        mu_t = mu_t.view(-1, atten_out_t, 1)
         mu_x = mu_x.view(-1, atten_out_w, 1)
         mu_y = mu_y.view(-1, atten_out_h, 1)
         sigma2 = sigma2.view(-1, 1, 1)
@@ -193,14 +200,18 @@ class TrilinearSample(GaussianSample):
 class MixSample(GaussianSample):
     def forward(self, x, loc_params):
         N, C, T, H, W = x.size()
+        '''the size of the feature figs after sample'''
         atten_out_t = T
         atten_out_w = self.out_w
         atten_out_h = int(round(atten_out_w / self.in_w * self.in_h))
+        """the anchor used in the sample"""
         anchor_t = T * self.dt_offset
         anchor_x = W * self.dx_offset
         anchor_y = H * self.dy_offset
+
         """ get localization parameters """
         dt, dx, dy, log_sigma2, log_delta_t, log_delta, log_gamma = loc_params
+
         dt = torch.tanh(dt) * T / 2.0 + anchor_t
         dx = torch.tanh(dx) * self.in_w / 2.0 + anchor_x
         dy = torch.tanh(dy) * self.in_h / 2.0 + anchor_y
@@ -209,15 +220,11 @@ class MixSample(GaussianSample):
         delta = torch.exp(log_delta) * self.delta_offset
         gamma = torch.sigmoid(log_gamma)
         """ set up transform matrix """
-        grid_x_i = torch.arange(0,
-                                atten_out_w).view(1,
-                                                  -1).float().cuda().detach()
-        grid_y_i = torch.arange(0,
-                                atten_out_h).view(1,
-                                                  -1).float().cuda().detach()
+        grid_x_i = torch.arange(0, atten_out_w).view(1, -1).float().cuda().detach()
+        grid_y_i = torch.arange(0, atten_out_h).view(1, -1).float().cuda().detach()
+        # dx [7,1]; grid_x_i [1,11]; mu_x [7,11,1]
         mu_x = dx + (grid_x_i - atten_out_w / 2.0) * delta
         mu_y = dy + (grid_y_i - atten_out_h / 2.0) * delta
-
         a = torch.arange(0, W).view(1, 1, -1).float().cuda().detach()
         b = torch.arange(0, H).view(1, 1, -1).float().cuda().detach()
         mu_x = mu_x.view(-1, atten_out_w, 1)
@@ -234,7 +241,7 @@ class MixSample(GaussianSample):
         """ spatial sampling (gaussian) """
         Fyv = Fy.view(Fy.size(0), 1, Fy.size(1), Fy.size(2)).unsqueeze(1)
         Fxv = Fx.view(Fx.size(0), 1, Fx.size(1), Fx.size(2)).unsqueeze(1)
-        Fxt = torch.transpose(Fxv, 2+1, 3+1)
+        Fxt = torch.transpose(Fxv, 2 + 1, 3 + 1)
         glimpse = torch.matmul(Fyv, torch.matmul(x, Fxt))
         if self.reverse == True:
             Fyt = torch.transpose(Fyv, 2, 3)
@@ -273,6 +280,12 @@ class MixSample(GaussianSample):
         glimpse = F.grid_sample(x, grid, align_corners=False)
         glimpse = glimpse.view(N, C, self.out_h, self.out_w, T)
         glimpse = glimpse.permute(0, 1, 4, 2, 3).contiguous()
+
         out = glimpse * gamma.view(-1, 1, 1, 1, 1)
+
+        picture, axes = plt.subplots(1, 1, figsize=(10, 10))
+        axes.axis('off')
+        axes.imshow(out[3,:,4].mean(0).cpu().detach().numpy())
+        plt.show()
 
         return out

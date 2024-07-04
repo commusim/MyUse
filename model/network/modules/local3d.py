@@ -130,9 +130,16 @@ class LocalBranch(nn.Module):
                                reverse=reverse)
 
     def forward(self, x, param_x):
+        """
+        locator = Localization3D
+        sampler = GaussianSample
+        feature_extraction = C3DBlock
+        """
         # loc_params: ([N, T], [N, T], [N, T], [N, T], [N, T])
         loc_params = self.localization(param_x)
+
         sampled_feature = self.sampler(x, loc_params)
+
         out = self.feature_extraction(sampled_feature)
         return out
 

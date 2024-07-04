@@ -69,25 +69,30 @@ class GaussianSampleST(nn.Module):
 
     def forward(self, x, loc_params):
         N, C, T, H, W = x.size()
+
         atten_out_t = T
         atten_out_w = self.out_w
         atten_out_h = int(round(atten_out_w / self.in_w * self.in_h))
+
         anchor_t = T * self.dt_offset
         anchor_x = W * self.dx_offset
         anchor_y = H * self.dy_offset
         """ get localization parameters """
         # dx: [N, T]
         dx, dy, log_sigma2, log_delta, log_gamma, dt, log_delta_t, log_gamma_t = loc_params
+
         dx = ProgressiveOffset(dx).view(-1, 1)
         dy = ProgressiveOffset(dy).view(-1, 1)
         dx = torch.tanh(dx) * self.in_w / 2.0 + anchor_x
         dy = torch.tanh(dy) * self.in_h / 2.0 + anchor_y
+
         sigma2 = torch.exp(log_sigma2).view(-1, 1) * self.sigma_offset
         delta = torch.exp(log_delta).view(-1, 1) * self.delta_offset
         gamma = torch.sigmoid(log_gamma).view(-1)
         dt = torch.tanh(dt) * T / 2.0 + anchor_t
         delta_t = torch.exp(log_delta_t) * self.delta_offset
         gamma_t = torch.sigmoid(log_gamma_t)
+
         """ set up spatial transform matrix """
         grid_x_i = torch.arange(0,
                                 atten_out_w).view(1,
